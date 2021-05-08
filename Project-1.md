@@ -38,14 +38,14 @@ treated with heatshock.
 library(tidyverse)
 ```
 
-    ## -- Attaching packages ----------------------------- tidyverse 1.3.0 --
+    ## -- Attaching packages ------------------------------------- tidyverse 1.3.0 --
 
     ## v ggplot2 3.3.3     v purrr   0.3.4
     ## v tibble  3.0.1     v dplyr   1.0.0
     ## v tidyr   1.1.2     v stringr 1.4.0
     ## v readr   1.3.1     v forcats 0.5.0
 
-    ## -- Conflicts -------------------------------- tidyverse_conflicts() --
+    ## -- Conflicts ---------------------------------------- tidyverse_conflicts() --
     ## x dplyr::filter() masks stats::filter()
     ## x dplyr::lag()    masks stats::lag()
 
@@ -130,6 +130,13 @@ head(Data)
     ## 4      -      11564     11951        7          0             6           1
     ## 5      +      12045     12426        2          1             0           3
     ## 6      -      13362     13743       12          7             5          11
+
+``` r
+#The size of the cleaned and joined dataset is 12 columns by 5816 rows. 
+dim(Data)
+```
+
+    ## [1] 5816   12
 
 ## Exploring the data with dplyr functions
 
