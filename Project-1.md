@@ -12,11 +12,12 @@ H2Az, which DNA wraps around to maintain its structure. The datasets are
 for yeast that: Have been heatshocked and have the Htz1 gene, have been
 heatshocked and do not have the Htz1 gene, have been treated with
 rapamycin and have the Htz1 gene, have been treated with rapamycin and
-do not have the Htz1 gene. These datasets interested me because my lab
-studies yeast histone genes, and I am curious about the effects of
-Rapamycin on histones. Rapamycin is drug currently being studied as a
-treatment for human histone-related neurological diseases like
-Huntington’s Disease.
+do not have the Htz1 gene. I chose this topic because I am interested in
+gene expression and in histone genes. These datasets interested me
+because my lab studies yeast histone genes, and I am curious about the
+effects of Rapamycin on histones. Rapamycin is drug currently being
+studied as a treatment for human histone-related neurological diseases
+like Huntington’s Disease.
 
 Variables: The variables include the name of the gene (Gene\_Name), gene
 starting position(Gene\_Start), the gene stopping position(Gene\_Stop),
@@ -37,14 +38,14 @@ treated with heatshock.
 library(tidyverse)
 ```
 
-    ## -- Attaching packages ---------------------------- tidyverse 1.3.0 --
+    ## -- Attaching packages ----------------------------- tidyverse 1.3.0 --
 
     ## v ggplot2 3.3.3     v purrr   0.3.4
     ## v tibble  3.0.1     v dplyr   1.0.0
     ## v tidyr   1.1.2     v stringr 1.4.0
     ## v readr   1.3.1     v forcats 0.5.0
 
-    ## -- Conflicts ------------------------------- tidyverse_conflicts() --
+    ## -- Conflicts -------------------------------- tidyverse_conflicts() --
     ## x dplyr::filter() masks stats::filter()
     ## x dplyr::lag()    masks stats::lag()
 
@@ -77,6 +78,10 @@ library(factoextra)
 ```
 
     ## Welcome! Want to learn more? See two factoextra-related books at https://goo.gl/ve3WBa
+
+``` r
+library(ggplot2)
+```
 
 ## Importing the datasets
 
