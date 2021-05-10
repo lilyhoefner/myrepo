@@ -1,0 +1,251 @@
+---
+title: "Project 1"
+author: "Lily Hoefner"
+date: "3/14/2021"
+output: github_document
+always_allow_html: true
+
+---
+## Introduction
+
+Datasets: The four datasets in this project are very old datasets produced by my FRI lab.  They look at the effects of deleting the Htz1 gene in yeast.  The nonessential Htz1 gene codes for a histone variant, H2Az, which DNA wraps around to maintain its structure.  The datasets are for yeast that: Have been heatshocked and have the Htz1 gene, have been heatshocked and do not have the Htz1 gene, have been treated with rapamycin and have the Htz1 gene, have been treated with rapamycin and do not have the Htz1 gene.  These datasets interested me because my lab studies yeast histone genes, and I am curious about the effects of Rapamycin on histones.  Rapamycin is drug currently being studied as a treatment for human histone-related neurological diseases like Huntington's Disease.  
+
+Variables: The variables include the name of the gene (Gene_Name), gene starting position(Gene_Start), the gene stopping position(Gene_Stop), the chromosome the gene is located on (Chromosome), transcription levels (Count), and whether the gene is on the positive or negative strand (Strand). 
+
+Predictions: I predict that the deletion of the Htz1 gene has an impact on the transcription levels of other genes in the yeast genome. More specifically, I predict that other genes in the genome will be downregulated by the deletion of Htz1.  I think the yeast treated with Rapamycin will be more affected by the deletion of Htz1 than the yeast treated with heatshock.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading the packages
+```{r}
+library(tidyverse)
+library(dplyr)
+library(purrr)
+library(kableExtra)
+library(psych)
+library(factoextra)
+```
+
+## Importing the datasets 
+```{r}
+#Import the datasets saved as .csv files on my computer
+WT<-read.csv(file='WT.csv')
+Htz1<- read.csv(file = 'Htz1.csv')
+RapWT<-read.csv(file='RapWT.csv')
+RapHtz1<-read.csv(file='RapHtz1.csv')
+```
+
+## Tidying the data
+```{r}
+#The data did not need tidying, but I did remove the extra columns before joining
+Htz1<-Htz1 %>%
+  select(Gene_Name,Count)
+RapHtz1<-RapHtz1 %>%
+  select(Gene_Name, Count)
+RapWT<-RapWT%>%
+  select(Gene_Name, Count)
+
+#Join the four datasets by the common variable "Gene_Name"
+Data<-WT%>%
+  left_join(Htz1, by="Gene_Name")%>%
+  rename(Count_WT=Count.x)%>%
+  rename(Count_Htz1=Count.y)%>%
+  left_join(RapHtz1, by="Gene_Name")%>%
+  rename(Count_RapHtz1=Count)%>%
+  left_join(RapWT, by="Gene_Name")%>%
+  rename(Count_RapWT=Count)
+head(Data)
+```
+
+## Exploring the data with dplyr functions
+```{r} 
+# Use mutate to create a column for gene length, use mutate to create a column for the normalized the transcription counts based on gene length, and remove the redundant/unnecessary columns.
+Data<-Data%>%
+  mutate(Gene_Length = abs(Gene_Start-Gene_Stop), Normalized_WT=Count_WT/Gene_Length, Normalized_Htz1=Count_Htz1/Gene_Length, Normalized_RapWT=Count_RapWT/Gene_Length,  Normalized_RapHtz1=Count_RapHtz1/Gene_Length)%>%
+  select(-Ignore_Color_Score, -Count_Htz1, -Count_WT, -Count_RapWT, -Count_RapHtz1)
+
+#Create a column for the difference between Normalized_WT and Normalized Htz1, create column for the difference between Normalized_RapWT and Normalized_RapHtz1, and create columns to see whether genes were up or downregulated by deletion of Htz1 after heatshock and after rapamycin treatment
+Data<-Data%>%
+  mutate(Heat_Difference=Normalized_WT-Normalized_Htz1, Rap_Difference=Normalized_RapWT-Normalized_RapHtz1)%>%
+  mutate(Heat_Regulation=case_when(Heat_Difference>0~"down", Heat_Difference<0~"up"), Rap_Regulation=case_when(Rap_Difference>0~"down", Rap_Difference<0~"up"))
+head(Data)
+
+#Filter for genes that were upregulated by the deletion of Htz1.  
+#More genes than I expected were upregulated by the deletion of Htz1.  However, some genes experienced both upregulation and downregulation depending on whether they were treated with heatshock or rapamycin.
+Upregualted<-Data%>%
+  filter(Heat_Regulation=="up"|Rap_Regulation=="up")%>%
+  select(Gene_Name, Chromosome, Heat_Regulation, Rap_Regulation)
+head(Upregualted)
+
+#Filter for genes on chromosome M and select the regulation columns. 
+#INTERSTING DISCOVERY: MITOCHONDRIAL DNA IS ONLY UPREGULATED (NEVER DOWNREGULATED) BY THE DELETION OF HTZ1 WHEN TREATED WITH HEATSHOCK AND RAPAMYCIN. 
+ChromosomeM<-Data%>%
+  filter(Chromosome=="chrM")%>%
+  select(Gene_Name, Heat_Regulation, Rap_Regulation)
+head(ChromosomeM)
+
+#Arrange the Data to see which heatshocked genes were most up or down regulated by the deletion of Htz1.  
+#Looking into the functions of these genes could reveal more about the role of Htz1 in yeast.  
+Data1<-Data%>%
+  select(Gene_Name, Heat_Difference, Rap_Difference)
+ArrangedbyHeat<-Data1%>%
+  arrange(desc(Heat_Difference))
+head(ArrangedbyHeat)
+#Arrange the Data to see which Rapamycin treated genes were most up or down regulated by the deletion of Htz1.
+ArrangedbyRap<-Data1%>%
+  arrange(desc(Rap_Difference))
+head(ArrangedbyRap)
+  
+#Use group_by and summarize to see the mean normalized heatshocked WT, heatschocked delHtz1, Rapamycin WT, and Rapamycin delHtz1 transcription counts per chromosome.  Find the difference in means to see which chromosomes on average had the most upregulated and most downregulated genes. (A positive difference means the gene was downregulated, a negative difference means the gene was upregulated by the deletion of Htz1.) 
+#As seen below, genes on chromosome 1 experienced the most downregulation with the deletion of Htz1 when treated with both heatshock and Rapamycin.  Genes on chromosome M experienced the most upregulation when treated with both heatshock and Rapamycin. 
+MeansbyChromosome<-Data%>%
+  group_by(Chromosome)%>%
+  summarise(Mean_WT_Count= mean(Normalized_WT), Mean_Htz1_Count=mean(Normalized_Htz1), Mean_RapWT_Count=mean(Normalized_RapWT), Mean_RapHtz1_Count=mean(Normalized_RapHtz1))
+head(MeansbyChromosome)
+Differences<-MeansbyChromosome%>%
+  mutate(Heat_Difference=Mean_WT_Count-Mean_Htz1_Count, Rap_Difference=Mean_RapWT_Count-Mean_RapHtz1_Count)%>%
+  select(Chromosome, Heat_Difference, Rap_Difference)
+Differences
+```
+
+## Summary statistics for each numeric variable 
+```{r}
+#After removing the non-numeric variables, I used the describe() function to get the desired summary statistics for each variable.  I used functions from the kable package to arrange the statistics into a table. 
+#The mean column of the table says that mean heat difference is greater than mean Rapamycin difference.  This means that gene transcription levels are more affected by the deletion of Htz1 when the yeast are heatshocked than when they are treated with Rapamycin.  
+
+SummaryStats<-Data%>%
+  select(-Chromosome, -Gene_Name, -Strand, -Heat_Regulation, -Rap_Regulation)%>%
+  describe()%>%
+  select(-vars, -trimmed, -mad, -kurtosis, -se)
+
+SummaryStats %>%
+  kbl() %>%
+  kable_styling()
+```
+
+## Summary statistics for variables grouped by Chromosome 
+```{r}
+#Here I grouped by the categorical variable "Chromosome".  I chose to look at summary statistics for the chromosomes with the most significant difference in transcription after removal of Htz1.  I used the describeBy() function to run summary statistics on the grouped data. 
+#We can see that Chromosome I and Chromosome M had the highest mean Heat_Difference and Rap_Difference.  
+SummaryStatsGrouped<-Data %>% 
+  select(-Transcript_Start, -Transcript_Stop, -Strand, -Gene_Name, -Gene_Start, -Gene_Stop, -Heat_Regulation, -Rap_Regulation)%>%
+  filter(Chromosome==c("chrI", "chrM", "chrX", "chrXVI"))
+
+Stats<-describeBy(SummaryStatsGrouped,SummaryStatsGrouped$Chromosome)
+Stats
+```
+
+## Correlation matrix 
+```{r}
+#Build a correlation matrix of the numeric variables
+#I chose to remove some of the less relevant variables for simplification.  The correlation matrix shows some highly correlated variables (like Heat_Difference and Rap_Difference).
+data_num <- Data %>%
+  select_if(is.numeric)%>%
+  select(-Gene_Start, -Gene_Stop, -Transcript_Start, -Transcript_Stop)
+cor(data_num, use = "pairwise.complete.obs")
+pairs.panels(data_num, 
+             method = "pearson", # correlation coefficient method
+             hist.col = "blue", # color of histogram 
+             smooth = FALSE, density = FALSE, ellipses = FALSE)
+```
+
+## Correlation heatmap
+```{r}
+#Build a correlation heatmap
+cor(data_num, use = "pairwise.complete.obs") %>%
+  # Save as a data frame
+  as.data.frame %>%
+  # Convert row names to an explicit variable
+  rownames_to_column %>%
+  # Pivot so that all correlations appear in the same column
+  pivot_longer(-1, names_to = "other_var", values_to = "correlation") %>%
+  ggplot(aes(rowname, other_var, fill=correlation)) +
+  # Heatmap with geom_tile
+  geom_tile() +
+  # Change the scale to make the middle appear neutral
+  scale_fill_gradient2(low="red",mid="white",high="blue") +
+  # Overlay values
+  geom_text(aes(label = round(correlation,2)), color = "black", size = 4) +
+  # Give title and labels
+  labs(title = "Correlation matrix", x = "variable 1", y = "variable 2")+theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+#As seen in the correlation heatmap, several variables had no correlation while others were highly correlated.  Some of the most highly correlated variables were Rap_Difference and Heat_Difference, Normalized_WT and Normalized_Htz1.  Some variables like Gene_Length and Heat_Difference had zero correlation.  
+```
+
+## Visualizing the data
+```{r}
+#This graph looks at each of the four categories of genes (Heatshock WT, Heatshock delHtz1, Rapamycin WT, and Rapamycin delHtz1).  The y axis represents the mean transcription level of each category.  Bars are colored by treatment.  The stat=”summary” function was used to find the mean of each category.  Error bars show the mean standard error for each treatment.
+#As seen below, the Heatshock WT yeast had the highest mean transcription levels, then the Rapamycin WT yeast, then the Heatshock delHtz1 yeast, then the Rapamycin delHtz1 yeast.  The heatshock yeast transcription levels appear to be impacted more by the deletion of Htz1 than the Rapamycin treated yeast.   
+Data%>%
+  select(Chromosome, Normalized_WT, Normalized_Htz1, Normalized_RapWT, Normalized_RapHtz1)%>%
+  pivot_longer(cols = c(`Normalized_WT`, `Normalized_Htz1`, `Normalized_RapWT`, `Normalized_RapHtz1`), names_to = "Treatment", values_to = "Transcripts")%>%
+  ggplot(aes(x = Treatment, color=Treatment)) +
+  geom_bar(aes(y = Transcripts), stat="summary", fun=mean, fill="white", show.legend = FALSE) + scale_y_continuous("Mean Normalized Transcription Count")+scale_x_discrete(name ="Treatment", labels=c("Heatshock delHtz1","Rapamycin delHtz1","Rapamycin WT", "Heatshock WT"))+ geom_errorbar(aes(y=Transcripts), stat="summary", width=.5, color= "black")+ggtitle("Mean Transciption Levels by Treatment")
+
+#This graph looks at heatshocked yeast, and plots the transcription levels of those with the Htz1 gene against the transcription levels of those without the Htz1 gene.  Each point represents a gene, and its location on the graph represents its transcription levels.  The points are colored by regulation (upregulted genes appear blue and downregulated genes appear pink). The points are shaped by whether or not their gene is located on the chromosome M.   
+#One can see that the slope of the line is less than 1, implying downregulation of genes in the yeast without the Htz1 gene.  Although most genes are not on chromosome M, the ones that are are upregulated.  There are more downregulated than upregulated genes.  
+Data%>%
+  mutate(Chromosome_M=case_when(Chromosome=="chrM"~"chrM", Chromosome!="chrM"~"other"))%>%
+  ggplot(aes(x=Normalized_WT, y=Normalized_Htz1))+geom_point(alpha = 1/2, size = 2.5, aes(color=Heat_Regulation, shape=Chromosome_M))+ggtitle("Regulation Response of Heatshock Treated Genes with/without Htz1") + xlab("Heatshock Response w/ Htz1 (Transcription Count)")+ylab("Heatshock Response w/o Htz1 (Transcription Count)") +xlim(0, .5)+ylim(0,.5)+geom_smooth(method = "lm", se = FALSE)
+#I ran a correlation test on the x and y variables to see the relationship between them.  They had a strong correlation of .862.  
+cor.test(Data$Normalized_WT, Data$Normalized_Htz1)
+```
+
+## PCA 
+```{r}
+#Keep only numeric variables and scale each numeric variable.  Perform pca with the function prcomp().
+Datanumeric<-Data%>%
+  select_if(is.numeric)%>%
+  scale()
+pca<-Datanumeric%>%
+  prcomp()
+
+#Visualize results of the PCA
+#First we see the standard deviations for each principal component. If we squared these values we would get the variance.
+#Next, we can see how each variable impacts each principal component.  For example, we can see that the variables "Normalized_WT", "Normalized_RapWT", and "Heat_Difference" contribute the most to PC1.  The variable "Gene_Length" contributes the most to PC2.  "Rap_Difference" contributed a lot to PC6.  
+pca
+
+# Determine the percentage of variance explained by each component with sdev
+percent <- 100* (pca$sdev^2 / sum(pca$sdev^2))
+percent
+# Visualize the percentage of variance explained by each component
+#As seen in the graph, 41.5% is explained by PC1 and 36.4% is explained by PC2.
+perc_data <- data.frame(percent = percent, PC = 1:length(percent))
+ggplot(perc_data, aes(x = PC, y = percent)) + 
+  geom_col(fill="steelblue") + 
+  geom_text(aes(label = round(percent, 2)), size = 4, vjust = -0.5) + 
+  ylim(0, 60) + ggtitle("Percent Variance Explained by Each Principle Component")
+
+#Construct a scree plot using the package and determine how many principal components should be considered
+#Based on this, I chose to use the first 2 principle components. Collectively, these two components explain almost 80 percent of the variance.  
+fviz_screeplot(pca)
+
+# Visualize the rotated data
+head(pca$x)
+
+pca_data <- data.frame(pca$x)
+
+#Add the variable chromosome back into the data 
+pca_data <- data.frame(pca$x, Chromosome = Data$Chromosome)
+head(pca_data)
+
+#Plot the first and second principle components coloring by chromosome
+#The clusters: Two clusters that stand out are chromosome M (pictured in green near the top) and chromosome 4 (pictured in mustard near the bottom).  In future research, I would investigate why the genes on these two chromosomes behave the way they do when Htz1 is deleted and why the observations for these genes are distinguished by chromosome.  
+ggplot(pca_data, aes(x = PC1, y = PC2, color= Chromosome)) + 
+  geom_point()+ggtitle("PCA 1 vs PCA 2")
+```
+
+
+## References
+Graziotto J.J., Cao K., Collins F.S., Krainc D. 2012. Rapamycin activates autophagy in Hutchinson-Gilford progeria syndrome: implications for normal aging and age-dependent neurodegenerative disorders. Autophagy. 8(1), 147–151. doi: 10.4161/auto.8.1.18331
+
+Morano K, Grant C,  Moye-Rowley, WS. 2012. The response to heat shock and oxidative stress in Saccharomyces cerevisiae. Genetics, 190(4), 1157-1195. 
+ doi: 10.1534/genetics.111.128033
+ 
+Mühlhofer M, Berchtold E, Stratil CG, Csaba G, Kunold E, Bach NC, Sieber SA, Haslbeck M, Zimmer R, Buchner J. 2019. The Heat Shock Response in Yeast Maintains Protein Homeostasis by Chaperoning and Replenishing Proteins. Cell Rep. 24;29(13):4593-4607.e8. doi: 10.1016/j.celrep.2019.11.109.
+
+National Human Genome Research Institute. 09 May 2013. 1996: Yeast Genome Sequenced. www.genome.gov/25520379/online-education-kit-1996-yeast-genome-sequenced. 
+
+
